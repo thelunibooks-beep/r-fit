@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>R-Fit | Control Calórico</title>
+
+  <!-- Configuración PWA para instalación en pantalla de inicio (iOS y Android) -->
+  <meta name="theme-color" content="#3B4736" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="R-Fit" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Icono dinámico SVG basado en la letra R en verde militar -->
+  <link id="app-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='116' fill='%233B4736'/%3E%3Crect x='26' y='26' width='460' height='460' rx='94' fill='none' stroke='%23F6F7F5' stroke-opacity='0.18' stroke-width='8'/%3E%3Cpath d='M168 384V128h104c56 0 92 32 92 80 0 40-26 68-66 76l74 100h-56l-66-94h-34v94h-48zm48-136h52c30 0 48-15 48-40s-18-40-48-40h-52v80z' fill='%23F6F7F5'/%3E%3Ccircle cx='356' cy='366' r='18' fill='%239CB08E'/%3E%3C/svg%3E" />
+  <link id="app-apple-icon" rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='116' fill='%233B4736'/%3E%3Crect x='26' y='26' width='460' height='460' rx='94' fill='none' stroke='%23F6F7F5' stroke-opacity='0.18' stroke-width='8'/%3E%3Cpath d='M168 384V128h104c56 0 92 32 92 80 0 40-26 68-66 76l74 100h-56l-66-94h-34v94h-48zm48-136h52c30 0 48-15 48-40s-18-40-48-40h-52v80z' fill='%23F6F7F5'/%3E%3Ccircle cx='356' cy='366' r='18' fill='%239CB08E'/%3E%3C/svg%3E" />
+
+  <!-- Tipografía Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            olive: {
+              50: '#F6F7F5',
+              100: '#ECEEE9',
+              200: '#D8DDD3',
+              300: '#B8C2B0',
+              400: '#8F9E84',
+              500: '#65755B',
+              600: '#4B5842',
+              700: '#3B4736',
+              800: '#2E382A',
+              900: '#1E221D',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #F6F7F5;
+      color: #1E221D;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* Ajustes de área segura para móviles con notch */
+    .safe-top {
+      padding-top: max(env(safe-area-inset-top), 0.75rem);
+    }
+    .safe-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+    }
+
+    /* Animación pulso grabación de voz */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 71, 54, 0.55); }
+      70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(59, 71, 54, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 71, 54, 0); }
+    }
+    .recording-pulse {
+      animation: pulse-ring 1.5s infinite;
+    }
+
+    /* Ocultar scrollbar manteniendo scroll fluido */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start antialiased selection:bg-olive-700 selection:text-white">
+
+  <!-- Contenedor principal estilo móvil centrado en escritorio -->
+  <div id="app" class="w-full max-w-md min-h-screen bg-olive-50 flex flex-col relative shadow-sm border-x border-olive-200/70">
+
+    <!-- CABECERA FIJA -->
+    <header class="sticky top-0 z-30 bg-olive-50/90 backdrop-blur-md border-b border-olive-200/80 px-4 pb-3 safe-top">
+      <div class="flex items-center justify-between">
+        <!-- Marca + Icono R -->
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-olive-700 flex items-center justify-center shadow-sm shrink-0">
+            <svg class="w-5 h-5" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 50V14H34C41.5 14 46 18.2 46 24.8C46 30.2 42.5 34.1 37.1 35.2L47 50H39.4L30.5 36.2H25.8V50H19ZM25.8 30.6H33.2C37.3 30.6 39.6 28.4 39.6 24.8C39.6 21.2 37.3 19.2 33.2 19.2H25.8V30.6Z" fill="#F6F7F5"/>
+              <circle cx="46" cy="47.5" r="3" fill="#8F9E84"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-base font-bold tracking-tight text-olive-900 leading-tight">R-Fit</h1>
+            <p id="header-subtitle" class="text-[11px] font-medium text-olive-500">Déficit & Evolución</p>
+          </div>
+        </div>
+
+        <!-- Selector de fecha (visible en pestaña Hoy) -->
+        <div id="date-navigator" class="flex items-center gap-1 bg-white border border-olive-200 rounded-xl px-1.5 py-1 shadow-2xs">
+          <button id="btn-prev-day" type="button" aria-label="Día anterior" class="p-1.5 rounded-lg text-olive-700 hover:bg-olive-100 active:scale-95 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button id="btn-today-reset" type="button" class="px-2 py-0.5 text-xs font-semibold text-olive-800 min-w-[76px] text-center">
+            Hoy
+          </button>
+          <button id="btn-next-day" type="button" aria-label="Día siguiente" class="p-1.5 rounded-lg text-olive-700 hover:bg-olive-100 active:scale-95 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- NOTIFICACIÓN FLOTANTE (TOAST) -->
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm pointer-events-none flex flex-col gap-2"></div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 px-4 pt-4 pb-44 overflow-y-auto no-scrollbar">
+
+      <!-- ========================================================= -->
+      <!-- PESTAÑA 1: HOY (BALANCE Y REGISTRO MULTIMODAL)            -->
+      <!-- ========================================================= -->
+      <section id="tab-today" class="space-y-4">
+
+        <!-- Tarjeta Resumen Calórico -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 shadow-2xs">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-olive-500">Balance Diario</span>
+            <button id="btn-open-manual" type="button" class="text-xs font-semibold text-olive-700 bg-olive-100 hover:bg-olive-200/80 px-2.5 py-1 rounded-lg transition">
+              + Manual
+            </button>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <!-- Anillo SVG de Progreso -->
+            <div class="relative w-28 h-28 shrink-0 flex items-center justify-center">
+              <svg class="w-28 h-28 -rotate-90" viewBox="0 0 110 110">
+                <circle cx="55" cy="55" r="46" stroke="#ECEEE9" stroke-width="10" fill="none" />
+                <circle id="calorie-ring" cx="55" cy="55" r="46" stroke="#3B4736" stroke-width="10" fill="none"
+                        stroke-linecap="round" stroke-dasharray="289.02" stroke-dashoffset="289.02"
+                        class="transition-all duration-500 ease-out" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span id="stat-remaining" class="text-xl font-bold text-olive-900 tracking-tight leading-none">1800</span>
+                <span id="stat-remaining-label" class="text-[10px] font-medium text-olive-500 mt-1">restantes</span>
+              </div>
+            </div>
+
+            <!-- Desglose Objetivo / Comida / Ejercicio -->
+            <div class="flex-1 space-y-2.5">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-olive-500 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-olive-300"></span> Objetivo
+                </span>
+                <span id="stat-goal" class="font-semibold text-olive-900">1.800 kcal</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-olive-500 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-olive-700"></span> Ingeridas
+                </span>
+                <span id="stat-food" class="font-semibold text-olive-900">0 kcal</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-olive-500 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-600"></span> Ejercicio
+                </span>
+                <span id="stat-exercise" class="font-semibold text-emerald-700">+0 kcal</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Macronutrientes -->
+          <div class="mt-4 pt-3 border-t border-olive-100 grid grid-cols-3 gap-2 text-center">
+            <div class="bg-olive-50 rounded-xl py-2 px-1">
+              <p class="text-[10px] font-medium text-olive-500 uppercase">Proteína</p>
+              <p id="stat-protein" class="text-sm font-bold text-olive-800 mt-0.5">0 g</p>
+            </div>
+            <div class="bg-olive-50 rounded-xl py-2 px-1">
+              <p class="text-[10px] font-medium text-olive-500 uppercase">Carbos</p>
+              <p id="stat-carbs" class="text-sm font-bold text-olive-800 mt-0.5">0 g</p>
+            </div>
+            <div class="bg-olive-50 rounded-xl py-2 px-1">
+              <p class="text-[10px] font-medium text-olive-500 uppercase">Grasas</p>
+              <p id="stat-fat" class="text-sm font-bold text-olive-800 mt-0.5">0 g</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner Aviso si falta API Key -->
+        <div id="api-key-warning" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start justify-between gap-3">
+          <div class="text-xs text-amber-900 leading-relaxed">
+            <p class="font-semibold">Configura tu API Key de Gemini</p>
+            <p class="text-amber-700 mt-0.5">Necesaria para calcular calorías por voz, texto o foto. También puedes usar "+ Manual".</p>
+          </div>
+          <button id="btn-go-settings" type="button" class="shrink-0 bg-olive-700 text-white text-xs font-semibold px-3 py-2 rounded-xl active:scale-95 transition">
+            Ajustes
+          </button>
+        </div>
+
+        <!-- Lista de Registros del Día -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between px-1">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Registro de actividad y comidas</h2>
+            <span id="entries-count" class="text-xs text-olive-400 font-medium">0 ítems</span>
+          </div>
+
+          <div id="entries-list" class="space-y-2">
+            <!-- Se rellena dinámicamente -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- PESTAÑA 2: EVOLUCIÓN (PERFIL Y GRÁFICA DE PESO)           -->
+      <!-- ========================================================= -->
+      <section id="tab-evolution" class="hidden space-y-4">
+
+        <!-- Métricas de Progreso -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <div class="bg-white rounded-2xl border border-olive-200 p-3 text-center">
+            <p class="text-[10px] font-semibold uppercase text-olive-500">Peso Actual</p>
+            <p id="evo-current-weight" class="text-lg font-bold text-olive-900 mt-1">-- kg</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-olive-200 p-3 text-center">
+            <p class="text-[10px] font-semibold uppercase text-olive-500">Variación</p>
+            <p id="evo-weight-diff" class="text-lg font-bold text-olive-700 mt-1">0.0 kg</p>
+          </div>
+          <div class="bg-white rounded-2xl border border-olive-200 p-3 text-center">
+            <p class="text-[10px] font-semibold uppercase text-olive-500">IMC Actual</p>
+            <p id="evo-bmi" class="text-lg font-bold text-olive-900 mt-1">--</p>
+          </div>
+        </div>
+
+        <!-- Registro Rápido de Pesaje -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Registrar pesaje</h2>
+          <form id="form-weight" class="flex gap-2">
+            <input type="date" id="input-weight-date" required class="w-36 bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-xs font-medium text-olive-900 focus:outline-none focus:border-olive-600" />
+            <input type="number" step="0.1" min="30" max="300" id="input-weight-val" placeholder="Ej: 82.4" required class="flex-1 min-w-0 bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-sm font-semibold text-olive-900 focus:outline-none focus:border-olive-600" />
+            <button type="submit" class="bg-olive-700 hover:bg-olive-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl active:scale-95 transition shrink-0">
+              Guardar
+            </button>
+          </form>
+        </div>
+
+        <!-- Gráfica SVG de Evolución -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Curva de progreso</h2>
+            <span id="evo-goal-label" class="text-[11px] font-medium text-olive-600 bg-olive-100 px-2 py-0.5 rounded-md">Meta: -- kg</span>
+          </div>
+          <div id="weight-chart-container" class="w-full h-48 flex items-center justify-center">
+            <!-- SVG dinámico -->
+          </div>
+        </div>
+
+        <!-- Datos Antropométricos Iniciales -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Datos personales y metas</h2>
+            <span id="evo-tmb-badge" class="text-[11px] font-medium text-olive-500">TMB: -- kcal</span>
+          </div>
+          <form id="form-profile" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Altura (cm)</label>
+              <input type="number" id="prof-height" min="100" max="240" placeholder="175" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Edad (años)</label>
+              <input type="number" id="prof-age" min="14" max="110" placeholder="40" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Peso inicial (kg)</label>
+              <input type="number" step="0.1" id="prof-start-weight" placeholder="85.0" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Peso objetivo (kg)</label>
+              <input type="number" step="0.1" id="prof-goal-weight" placeholder="78.0" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+            <div class="col-span-2 flex items-center justify-between pt-1">
+              <select id="prof-sex" class="bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-xs font-medium text-olive-800 focus:outline-none">
+                <option value="male">Hombre</option>
+                <option value="female">Mujer</option>
+              </select>
+              <button type="submit" class="bg-olive-700 hover:bg-olive-800 text-white text-xs font-semibold px-4 py-2 rounded-xl active:scale-95 transition">
+                Actualizar perfil
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Historial de Pesajes -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-2.5">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Historial de pesajes</h2>
+          <div id="weight-history-list" class="divide-y divide-olive-100 text-sm"></div>
+        </div>
+
+      </section>
+
+      <!-- ========================================================= -->
+      <!-- PESTAÑA 3: AJUSTES                                        -->
+      <!-- ========================================================= -->
+      <section id="tab-settings" class="hidden space-y-4">
+
+        <!-- Configuración API Key Gemini -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Inteligencia Artificial (Gemini)</h2>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="text-[11px] font-semibold text-olive-700 underline">
+              Obtener API Key
+            </a>
+          </div>
+          <p class="text-xs text-olive-500 leading-relaxed">
+            Tu clave se guarda únicamente en la memoria privada de este navegador (`localStorage`), nunca se sube a GitHub.
+          </p>
+          <div class="relative">
+            <input type="password" id="set-api-key" placeholder="AIzaSy..." class="w-full bg-olive-50 border border-olive-200 rounded-xl pl-3 pr-16 py-2.5 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            <button type="button" id="btn-toggle-key" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-olive-600 px-2 py-1 rounded-lg hover:bg-olive-200/60">
+              Ver
+            </button>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-olive-600 mb-1">Modelo de Gemini</label>
+            <select id="set-model" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-xs font-medium text-olive-900 focus:outline-none">
+              <option value="gemini-2.5-flash">gemini-2.5-flash (Recomendado - Rápido y Multimodal)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (Mayor precisión)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Objetivo Calórico Diario -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Objetivo Calórico Diario</h2>
+          <div class="flex items-center gap-3">
+            <input type="number" id="set-calorie-goal" min="800" max="6000" step="50" value="1800" class="flex-1 bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-sm font-bold text-olive-900 focus:outline-none focus:border-olive-600" />
+            <span class="text-xs font-semibold text-olive-500">kcal / día</span>
+          </div>
+          <button type="button" id="btn-save-settings" class="w-full bg-olive-700 hover:bg-olive-800 text-white text-xs font-semibold py-3 rounded-xl active:scale-98 transition">
+            Guardar configuración
+          </button>
+        </div>
+
+        <!-- Copias de Seguridad -->
+        <div class="bg-white rounded-2xl border border-olive-200 p-4 space-y-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-olive-500">Copia de seguridad (JSON)</h2>
+          <p class="text-xs text-olive-500">Exporta tus datos para tener respaldo o pasarlos a otro dispositivo.</p>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" id="btn-export-json" class="flex items-center justify-center gap-1.5 bg-olive-100 hover:bg-olive-200/80 text-olive-800 text-xs font-semibold py-2.5 px-3 rounded-xl transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Exportar
+            </button>
+            <label class="flex items-center justify-center gap-1.5 bg-olive-100 hover:bg-olive-200/80 text-olive-800 text-xs font-semibold py-2.5 px-3 rounded-xl transition cursor-pointer">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Importar
+              <input type="file" id="input-import-json" accept="application/json" class="hidden" />
+            </label>
+          </div>
+          <div class="pt-2 border-t border-olive-100">
+            <button type="button" id="btn-reset-all" class="w-full text-xs font-semibold text-red-600 hover:bg-red-50 py-2 rounded-xl transition">
+              Borrar todos los registros locales
+            </button>
+          </div>
+        </div>
+
+        <!-- Firma discreta -->
+        <footer class="pt-4 pb-6 text-center">
+          <p class="text-[11px] font-medium text-olive-400 tracking-wide">
+            Creat per RLTR amb l'ajuda de la IA [=_=]
+          </p>
+        </footer>
+
+      </section>
+
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- BARRA DE ENTRADA MULTIMODAL (SOLO EN PESTAÑA HOY)         -->
+    <!-- ========================================================= -->
+    <div id="multimodal-dock" class="fixed bottom-[62px] left-1/2 -translate-x-1/2 w-full max-w-md z-30 px-3 pb-2 pointer-events-none">
+      <div class="bg-white/95 backdrop-blur-md border border-olive-200 rounded-2xl shadow-lg p-2 pointer-events-auto">
+
+        <!-- Previsualización de Imagen Adjunta (Plato o Reloj) -->
+        <div id="image-preview-box" class="hidden mb-2 relative inline-flex items-center gap-2 bg-olive-50 border border-olive-200 rounded-xl p-1.5 pr-8">
+          <img id="image-preview-thumb" src="" alt="Vista previa" class="w-12 h-12 object-cover rounded-lg" />
+          <div class="text-xs">
+            <p class="font-semibold text-olive-800">Imagen adjunta</p>
+            <p class="text-[10px] text-olive-500">Lista para analizar</p>
+          </div>
+          <button type="button" id="btn-remove-image" aria-label="Quitar imagen" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-olive-800/80 text-white flex items-center justify-center text-xs">
+            ✕
+          </button>
+        </div>
+
+        <!-- Estado de grabación por voz -->
+        <div id="voice-status-bar" class="hidden mb-2 px-2.5 py-1.5 bg-olive-700 text-white rounded-xl text-xs flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+            <span id="voice-status-text">Escuchando... habla ahora</span>
+          </span>
+          <button type="button" id="btn-stop-voice" class="text-[11px] font-semibold bg-white/20 px-2 py-0.5 rounded-lg">
+            Listo
+          </button>
+        </div>
+
+        <!-- Controles principales: Cámara/Galería + Texto + Micrófono + Enviar -->
+        <div class="flex items-end gap-1.5">
+          <!-- Botón Imagen (Cámara o Galería) -->
+          <label for="input-image-file" title="Foto de plato o captura de reloj" class="w-10 h-10 rounded-xl bg-olive-100 hover:bg-olive-200/80 text-olive-800 flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <input type="file" id="input-image-file" accept="image/*" class="hidden" />
+          </label>
+
+          <!-- Campo de texto autoajustable -->
+          <textarea id="input-prompt" rows="1" placeholder="Ej: Ensalada de pasta y café, o 50 min caminando..." class="flex-1 bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-sm text-olive-900 placeholder:text-olive-400 resize-none max-h-24 focus:outline-none focus:border-olive-600 leading-snug"></textarea>
+
+          <!-- Botón Micrófono -->
+          <button type="button" id="btn-mic" title="Dictar por voz" class="w-10 h-10 rounded-xl bg-olive-100 hover:bg-olive-200/80 text-olive-800 flex items-center justify-center shrink-0 active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4m-4 0h8"/>
+            </svg>
+          </button>
+
+          <!-- Botón Enviar / Analizar con IA -->
+          <button type="button" id="btn-send-ai" title="Calcular con IA" class="w-10 h-10 rounded-xl bg-olive-700 hover:bg-olive-800 text-white flex items-center justify-center shrink-0 active:scale-95 transition disabled:opacity-50">
+            <svg id="icon-send" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            <svg id="icon-spinner" class="w-5 h-5 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- NAVEGACIÓN INFERIOR (3 PESTAÑAS)                          -->
+    <!-- ========================================================= -->
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-olive-200 z-30 safe-bottom">
+      <div class="grid grid-cols-3 h-[62px]">
+        <button type="button" data-tab="today" class="nav-btn flex flex-col items-center justify-center gap-1 text-olive-700 font-semibold transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <span class="text-[11px]">Hoy</span>
+        </button>
+
+        <button type="button" data-tab="evolution" class="nav-btn flex flex-col items-center justify-center gap-1 text-olive-400 font-medium transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+          </svg>
+          <span class="text-[11px]">Evolución</span>
+        </button>
+
+        <button type="button" data-tab="settings" class="nav-btn flex flex-col items-center justify-center gap-1 text-olive-400 font-medium transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span class="text-[11px]">Ajustes</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ========================================================= -->
+    <!-- MODAL EDICIÓN / AÑADIR MANUAL                             -->
+    <!-- ========================================================= -->
+    <div id="modal-entry" class="hidden fixed inset-0 z-50 bg-olive-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+      <div class="bg-white w-full max-w-md rounded-2xl border border-olive-200 p-4 space-y-3 shadow-xl">
+        <div class="flex items-center justify-between">
+          <h3 id="modal-entry-title" class="text-sm font-bold text-olive-900">Añadir registro</h3>
+          <button type="button" id="btn-close-modal" class="text-olive-400 hover:text-olive-700 p-1">✕</button>
+        </div>
+
+        <form id="form-manual-entry" class="space-y-3">
+          <input type="hidden" id="edit-entry-id" />
+
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-entry-type="food" class="type-toggle py-2 rounded-xl text-xs font-semibold border border-olive-700 bg-olive-700 text-white">
+              Comida
+            </button>
+            <button type="button" data-entry-type="exercise" class="type-toggle py-2 rounded-xl text-xs font-semibold border border-olive-200 bg-olive-50 text-olive-700">
+              Ejercicio
+            </button>
+          </div>
+          <input type="hidden" id="manual-type" value="food" />
+
+          <div>
+            <label class="block text-[11px] font-medium text-olive-600 mb-1">Descripción</label>
+            <input type="text" id="manual-name" required placeholder="Ej: Pechuga de pollo con brócoli" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Calorías (kcal)</label>
+              <input type="number" id="manual-calories" required min="0" max="5000" placeholder="350" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm font-bold text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-olive-600 mb-1">Nota (opcional)</label>
+              <input type="text" id="manual-notes" placeholder="Ej: 200g / 50 min" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2 text-sm text-olive-900 focus:outline-none focus:border-olive-600" />
+            </div>
+          </div>
+
+          <div id="manual-macros-row" class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[10px] font-medium text-olive-500 mb-1">Proteína (g)</label>
+              <input type="number" id="manual-protein" min="0" value="0" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-2.5 py-1.5 text-xs text-olive-900" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-olive-500 mb-1">Carbos (g)</label>
+              <input type="number" id="manual-carbs" min="0" value="0" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-2.5 py-1.5 text-xs text-olive-900" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-medium text-olive-500 mb-1">Grasas (g)</label>
+              <input type="number" id="manual-fat" min="0" value="0" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-2.5 py-1.5 text-xs text-olive-900" />
+            </div>
+          </div>
+
+          <button type="submit" class="w-full bg-olive-700 hover:bg-olive-800 text-white text-xs font-semibold py-3 rounded-xl active:scale-98 transition">
+            Guardar registro
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL CONFIRMACIÓN REINICIO                               -->
+    <!-- ========================================================= -->
+    <div id="modal-confirm-reset" class="hidden fixed inset-0 z-50 bg-olive-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white w-full max-w-sm rounded-2xl border border-olive-200 p-5 space-y-4 shadow-xl">
+        <h3 class="text-sm font-bold text-olive-900">¿Borrar todos los datos?</h3>
+        <p class="text-xs text-olive-600 leading-relaxed">
+          Se eliminará todo tu historial de comidas, ejercicios y pesajes de este navegador. Te recomendamos exportar una copia JSON antes.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="btn-cancel-reset" class="px-4 py-2 rounded-xl text-xs font-semibold bg-olive-100 text-olive-800">Cancelar</button>
+          <button type="button" id="btn-confirm-reset-action" class="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 text-white">Sí, borrar todo</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- LÓGICA DE LA APLICACIÓN                                   -->
+  <!-- ========================================================= -->
+  <script>
+    (function () {
+      'use strict';
+
+      // --- 1. MANIFEST DINÁMICO PARA PWA EN GITHUB PAGES ---
+      const appIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="116" fill="#3B4736"/><rect x="26" y="26" width="460" height="460" rx="94" fill="none" stroke="#F6F7F5" stroke-opacity="0.18" stroke-width="8"/><path d="M168 384V128h104c56 0 92 32 92 80 0 40-26 68-66 76l74 100h-56l-66-94h-34v94h-48zm48-136h52c30 0 48-15 48-40s-18-40-48-40h-52v80z" fill="#F6F7F5"/><circle cx="356" cy="366" r="18" fill="#9CB08E"/></svg>`;
+      const appIconDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(appIconSvg);
+
+      try {
+        const manifest = {
+          name: 'R-Fit — Control Calórico',
+          short_name: 'R-Fit',
+          description: 'Control calórico minimalista con IA, voz y cámara.',
+          start_url: window.location.href.split('#')[0],
+          display: 'standalone',
+          background_color: '#F6F7F5',
+          theme_color: '#3B4736',
+          icons: [
+            { src: appIconDataUrl, sizes: '192x192', type: 'image/svg+xml' },
+            { src: appIconDataUrl, sizes: '512x512', type: 'image/svg+xml' }
+          ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+      } catch (e) {
+        // Ignorar si el entorno restringe Blob manifest
+      }
+
+      // --- 2. ESTADO Y PERSISTENCIA EN LOCALSTORAGE ---
+      const STORAGE_KEY = 'rfit_app_data_v1';
+
+      function getTodayISO() {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offset).toISOString().split('T')[0];
+      }
+
+      const defaultState = {
+        settings: {
+          apiKey: '',
+          model: 'gemini-2.5-flash',
+          calorieGoal: 1800
+        },
+        profile: {
+          height: 175,
+          age: 40,
+          sex: 'male',
+          startWeight: null,
+          goalWeight: null
+        },
+        entriesByDate: {}, // { 'YYYY-MM-DD': [ { id, type, name, calories, protein, carbs, fat, notes, time } ] }
+        weights: []        // [ { date: 'YYYY-MM-DD', weight: 82.5 } ]
+      };
+
+      let state = loadState();
+      let selectedDate = getTodayISO();
+      let attachedImageBase64 = null;
+      let attachedImageMime = null;
+      let isRecording = false;
+      let recognition = null;
+      let mediaRecorder = null;
+      let audioChunks = [];
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return structuredClone(defaultState);
+          const parsed = JSON.parse(raw);
+          return {
+            settings: { ...defaultState.settings, ...(parsed.settings || {}) },
+            profile: { ...defaultState.profile, ...(parsed.profile || {}) },
+            entriesByDate: parsed.entriesByDate || {},
+            weights: Array.isArray(parsed.weights) ? parsed.weights : []
+          };
+        } catch (err) {
+          return structuredClone(defaultState);
+        }
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+          showToast('Error al guardar en memoria local.', 'error');
+        }
+      }
+
+      // --- 3. UTILIDADES DE INTERFAZ ---
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        const bgClass = type === 'error'
+          ? 'bg-red-700 text-white'
+          : type === 'success'
+            ? 'bg-olive-700 text-white'
+            : 'bg-olive-900 text-white';
+
+        el.className = `${bgClass} text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg text-center transition-all duration-300 opacity-0 translate-y-[-6px]`;
+        el.textContent = message;
+        container.appendChild(el);
+
+        requestAnimationFrame(() => {
+          el.classList.remove('opacity-0', 'translate-y-[-6px]');
+        });
+
+        setTimeout(() => {
+          el.classList.add('opacity-0', 'translate-y-[-6px]');
+          setTimeout(() => el.remove(), 300);
+        }, 3200);
+      }
+
+      function formatDisplayDate(isoDate) {
+        const today = getTodayISO();
+        if (isoDate === today) return 'Hoy';
+
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const offset = yesterdayDate.getTimezoneOffset() * 60000;
+        const yesterdayISO = new Date(yesterdayDate.getTime() - offset).toISOString().split('T')[0];
+        if (isoDate === yesterdayISO) return 'Ayer';
+
+        const [y, m, d] = isoDate.split('-');
+        return `${d}/${m}/${y.slice(2)}`;
+      }
+
+      function shiftDate(isoDate, deltaDays) {
+        const [y, m, d] = isoDate.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        dt.setDate(dt.getDate() + deltaDays);
+        const ny = dt.getFullYear();
+        const nm = String(dt.getMonth() + 1).padStart(2, '0');
+        const nd = String(dt.getDate()).padStart(2, '0');
+        return `${ny}-${nm}-${nd}`;
+      }
+
+      // --- 4. NAVEGACIÓN ENTRE PESTAÑAS ---
+      const navButtons = document.querySelectorAll('.nav-btn');
+      const tabs = {
+        today: document.getElementById('tab-today'),
+        evolution: document.getElementById('tab-evolution'),
+        settings: document.getElementById('tab-settings')
+      };
+      const dock = document.getElementById('multimodal-dock');
+      const dateNav = document.getElementById('date-navigator');
+
+      function switchTab(tabName) {
+        Object.keys(tabs).forEach(key => {
+          tabs[key].classList.toggle('hidden', key !== tabName);
+        });
+
+        navButtons.forEach(btn => {
+          const isActive = btn.dataset.tab === tabName;
+          btn.classList.toggle('text-olive-700', isActive);
+          btn.classList.toggle('font-semibold', isActive);
+          btn.classList.toggle('text-olive-400', !isActive);
+          btn.classList.toggle('font-medium', !isActive);
+        });
+
+        dock.classList.toggle('hidden', tabName !== 'today');
+        dateNav.classList.toggle('hidden', tabName !== 'today');
+
+        if (tabName === 'evolution') renderEvolution();
+        if (tabName === 'settings') renderSettings();
+        if (tabName === 'today') renderToday();
+      }
+
+      navButtons.forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('btn-go-settings').addEventListener('click', () => switchTab('settings'));
+
+      // --- 5. RENDERIZADO PESTAÑA HOY ---
+      function renderToday() {
+        document.getElementById('btn-today-reset').textContent = formatDisplayDate(selectedDate);
+        document.getElementById('api-key-warning').classList.toggle('hidden', Boolean(state.settings.apiKey));
+
+        const entries = state.entriesByDate[selectedDate] || [];
+        let foodKcal = 0;
+        let exerciseKcal = 0;
+        let protein = 0;
+        let carbs = 0;
+        let fat = 0;
+
+        entries.forEach(item => {
+          const cal = Number(item.calories) || 0;
+          if (item.type === 'exercise') {
+            exerciseKcal += cal;
+          } else {
+            foodKcal += cal;
+            protein += Number(item.protein) || 0;
+            carbs += Number(item.carbs) || 0;
+            fat += Number(item.fat) || 0;
+          }
+        });
+
+        const goal = Number(state.settings.calorieGoal) || 1800;
+        const netConsumed = foodKcal - exerciseKcal;
+        const remaining = goal - netConsumed;
+
+        document.getElementById('stat-goal').textContent = `${goal.toLocaleString('es-ES')} kcal`;
+        document.getElementById('stat-food').textContent = `${Math.round(foodKcal).toLocaleString('es-ES')} kcal`;
+        document.getElementById('stat-exercise').textContent = `+${Math.round(exerciseKcal).toLocaleString('es-ES')} kcal`;
+
+        const remEl = document.getElementById('stat-remaining');
+        const remLabel = document.getElementById('stat-remaining-label');
+        if (remaining >= 0) {
+          remEl.textContent = Math.round(remaining).toLocaleString('es-ES');
+          remEl.classList.remove('text-red-600');
+          remEl.classList.add('text-olive-900');
+          remLabel.textContent = 'restantes';
+        } else {
+          remEl.textContent = `+${Math.abs(Math.round(remaining)).toLocaleString('es-ES')}`;
+          remEl.classList.remove('text-olive-900');
+          remEl.classList.add('text-red-600');
+          remLabel.textContent = 'excedidas';
+        }
+
+        document.getElementById('stat-protein').textContent = `${Math.round(protein)} g`;
+        document.getElementById('stat-carbs').textContent = `${Math.round(carbs)} g`;
+        document.getElementById('stat-fat').textContent = `${Math.round(fat)} g`;
+
+        // Actualizar anillo SVG
+        const ring = document.getElementById('calorie-ring');
+        const circumference = 289.02;
+        const ratio = Math.max(0, Math.min(1, netConsumed / Math.max(goal, 1)));
+        ring.style.strokeDashoffset = circumference - (ratio * circumference);
+        ring.style.stroke = remaining < 0 ? '#DC2626' : '#3B4736';
+
+        // Renderizar lista de entradas
+        const listEl = document.getElementById('entries-list');
+        document.getElementById('entries-count').textContent = `${entries.length} ${entries.length === 1 ? 'ítem' : 'ítems'}`;
+
+        if (entries.length === 0) {
+          listEl.innerHTML = `
+            <div class="bg-white/70 border border-dashed border-olive-200 rounded-2xl p-6 text-center space-y-1.5">
+              <p class="text-xs font-semibold text-olive-700">Sin registros todavía</p>
+              <p class="text-[11px] text-olive-500">Dicta por voz, escribe lo que has comido o sube una foto de tu plato o reloj.</p>
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = entries.map(item => {
+          const isEx = item.type === 'exercise';
+          const badgeBg = isEx ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-olive-100 text-olive-800 border-olive-200';
+          const calPrefix = isEx ? '-' : '';
+          const calColor = isEx ? 'text-emerald-700' : 'text-olive-900';
+          const macroText = !isEx && (item.protein || item.carbs || item.fat)
+            ? `P: ${Math.round(item.protein || 0)}g · C: ${Math.round(item.carbs || 0)}g · G: ${Math.round(item.fat || 0)}g`
+            : (item.notes || (isEx ? 'Actividad física' : 'Comida'));
+
+          return `
+            <div class="bg-white border border-olive-200 rounded-2xl p-3 flex items-center justify-between gap-2.5 shadow-2xs">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <span class="w-8 h-8 rounded-xl border ${badgeBg} flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
+                  ${isEx ? '⚡' : '🍽️'}
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold text-olive-900 truncate">${escapeHtml(item.name)}</p>
+                  <p class="text-[11px] text-olive-500 truncate mt-0.5">${escapeHtml(macroText)}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-xs font-bold ${calColor} mr-1">${calPrefix}${Math.round(item.calories)} kcal</span>
+                <button type="button" data-edit-id="${item.id}" aria-label="Editar" class="p-1.5 text-olive-400 hover:text-olive-700 rounded-lg hover:bg-olive-50">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+                <button type="button" data-del-id="${item.id}" aria-label="Eliminar" class="p-1.5 text-olive-400 hover:text-red-600 rounded-lg hover:bg-red-50">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Eventos de editar y eliminar
+        listEl.querySelectorAll('[data-del-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.delId;
+            state.entriesByDate[selectedDate] = (state.entriesByDate[selectedDate] || []).filter(e => e.id !== id);
+            saveState();
+            renderToday();
+            showToast('Registro eliminado');
+          });
+        });
+
+        listEl.querySelectorAll('[data-edit-id]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.dataset.editId;
+            const entry = (state.entriesByDate[selectedDate] || []).find(e => e.id === id);
+            if (entry) openEntryModal(entry);
+          });
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // Controles de navegación de fecha
+      document.getElementById('btn-prev-day').addEventListener('click', () => {
+        selectedDate = shiftDate(selectedDate, -1);
+        renderToday();
+      });
+      document.getElementById('btn-next-day').addEventListener('click', () => {
+        selectedDate = shiftDate(selectedDate, 1);
+        renderToday();
+      });
+      document.getElementById('btn-today-reset').addEventListener('click', () => {
+        selectedDate = getTodayISO();
+        renderToday();
+      });
+
+      // --- 6. ENTRADA DE IMAGEN (CÁMARA / GALERÍA) ---
+      const imageInput = document.getElementById('input-image-file');
+      const previewBox = document.getElementById('image-preview-box');
+      const previewThumb = document.getElementById('image-preview-thumb');
+
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Comprimir/redimensionar imagen para envío rápido desde móvil
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_DIM = 1024;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_DIM || h > MAX_DIM) {
+              if (w > h) {
+                h = Math.round((h * MAX_DIM) / w);
+                w = MAX_DIM;
+              } else {
+                w = Math.round((w * MAX_DIM) / h);
+                h = MAX_DIM;
+              }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            attachedImageBase64 = dataUrl.split(',')[1];
+            attachedImageMime = 'image/jpeg';
+            previewThumb.src = dataUrl;
+            previewBox.classList.remove('hidden');
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('btn-remove-image').addEventListener('click', clearAttachedImage);
+
+      function clearAttachedImage() {
+        attachedImageBase64 = null;
+        attachedImageMime = null;
+        imageInput.value = '';
+        previewBox.classList.add('hidden');
+      }
+
+      // --- 7. ENTRADA POR VOZ (WEB SPEECH API + RESPALDO AUDIO GEMINI) ---
+      const btnMic = document.getElementById('btn-mic');
+      const voiceBar = document.getElementById('voice-status-bar');
+      const voiceText = document.getElementById('voice-status-text');
+      const promptInput = document.getElementById('input-prompt');
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      btnMic.addEventListener('click', () => {
+        if (isRecording) {
+          stopVoiceCapture();
+        } else {
+          startVoiceCapture();
+        }
+      });
+
+      document.getElementById('btn-stop-voice').addEventListener('click', stopVoiceCapture);
+
+      function startVoiceCapture() {
+        if (SpeechRecognition) {
+          try {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = true;
+
+            const baseText = promptInput.value.trim();
+
+            recognition.onstart = () => {
+              isRecording = true;
+              btnMic.classList.add('bg-olive-700', 'text-white', 'recording-pulse');
+              btnMic.classList.remove('bg-olive-100', 'text-olive-800');
+              voiceBar.classList.remove('hidden');
+              voiceText.textContent = 'Escuchando... habla ahora';
+            };
+
+            recognition.onresult = (event) => {
+              let transcript = '';
+              for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+              }
+              promptInput.value = baseText ? `${baseText} ${transcript}` : transcript;
+              autoResizeTextarea();
+            };
+
+            recognition.onerror = (event) => {
+              if (event.error === 'not-allowed') {
+                showToast('Permiso de micrófono denegado.', 'error');
+              }
+              stopVoiceCapture();
+            };
+
+            recognition.onend = () => {
+              stopVoiceCapture();
+            };
+
+            recognition.start();
+            return;
+          } catch (e) {
+            // Fallback a MediaRecorder si SpeechRecognition falla
+          }
+        }
+
+        // Respaldo: grabar audio directo y enviarlo a Gemini
+        startAudioBlobRecording();
+      }
+
+      async function startAudioBlobRecording() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast('Tu navegador no soporta grabación de voz.', 'error');
+          return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop());
+            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64Audio = reader.result.split(',')[1];
+              analyzeWithGemini({ audioBase64: base64Audio, audioMime: audioBlob.type });
+            };
+            reader.readAsDataURL(audioBlob);
+          };
+
+          isRecording = true;
+          btnMic.classList.add('bg-olive-700', 'text-white', 'recording-pulse');
+          voiceBar.classList.remove('hidden');
+          voiceText.textContent = 'Grabando audio para Gemini...';
+          mediaRecorder.start();
+        } catch (err) {
+          showToast('No se pudo acceder al micrófono.', 'error');
+        }
+      }
+
+      function stopVoiceCapture() {
+        isRecording = false;
+        btnMic.classList.remove('bg-olive-700', 'text-white', 'recording-pulse');
+        btnMic.classList.add('bg-olive-100', 'text-olive-800');
+        voiceBar.classList.add('hidden');
+
+        if (recognition) {
+          try { recognition.stop(); } catch (e) {}
+          recognition = null;
+        }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          try { mediaRecorder.stop(); } catch (e) {}
+        }
+      }
+
+      function autoResizeTextarea() {
+        promptInput.style.height = 'auto';
+        promptInput.style.height = Math.min(promptInput.scrollHeight, 96) + 'px';
+      }
+      promptInput.addEventListener('input', autoResizeTextarea);
+
+      // --- 8. INTEGRACIÓN MULTIMODAL CON GEMINI API ---
+      const btnSendAi = document.getElementById('btn-send-ai');
+      const iconSend = document.getElementById('icon-send');
+      const iconSpinner = document.getElementById('icon-spinner');
+
+      btnSendAi.addEventListener('click', () => analyzeWithGemini());
+      promptInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          analyzeWithGemini();
+        }
+      });
+
+      async function analyzeWithGemini(extraAudio = null) {
+        const text = promptInput.value.trim();
+        if (!text && !attachedImageBase64 && !extraAudio) {
+          showToast('Escribe, dicta o adjunta una foto primero.');
+          return;
+        }
+
+        const apiKey = state.settings.apiKey.trim();
+        if (!apiKey) {
+          showToast('Introduce tu API Key en Ajustes para usar la IA.', 'error');
+          switchTab('settings');
+          return;
+        }
+
+        setLoadingState(true);
+
+        const systemInstruction = `Eres un nutricionista y entrenador personal experto. Analiza la entrada del usuario (texto, foto de comida, captura de pantalla de un reloj deportivo/app de fitness, o audio).
+Extrae TODOS los alimentos/bebidas consumidos y TODAS las actividades físicas realizadas.
+- Si es una captura de un reloj deportivo o app de actividad (Garmin, Apple Watch, Strava, Zepp, Samsung Health, etc.), lee exactamente las calorías activas/quemadas, tiempo y distancia si aparecen, y clasifícalo como "exercise".
+- Si es una foto de un plato o descripción de comida, estima las calorías y macronutrientes (proteína, carbohidratos, grasas en gramos) de forma realista para una ración estándar y clasifícalo como "food".
+- Si el usuario menciona varias cosas en una frase (ej. "3 cafés con leche de avena y una ensalada de pasta"), desglósalas en ítems separados para mayor claridad.
+Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
+
+        const parts = [];
+        if (text) {
+          parts.push({ text: `Registro del usuario: ${text}` });
+        } else if (attachedImageBase64) {
+          parts.push({ text: 'Analiza esta imagen (puede ser comida o captura de actividad física de un reloj deportivo) y calcula calorías y datos.' });
+        }
+
+        if (attachedImageBase64) {
+          parts.push({
+            inlineData: {
+              mimeType: attachedImageMime || 'image/jpeg',
+              data: attachedImageBase64
+            }
+          });
+        }
+
+        if (extraAudio && extraAudio.audioBase64) {
+          parts.push({
+            inlineData: {
+              mimeType: extraAudio.audioMime || 'audio/webm',
+              data: extraAudio.audioBase64
+            }
+          });
+        }
+
+        const payload = {
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  type: { type: 'STRING', enum: ['food', 'exercise'] },
+                  name: { type: 'STRING' },
+                  calories: { type: 'NUMBER' },
+                  protein: { type: 'NUMBER' },
+                  carbs: { type: 'NUMBER' },
+                  fat: { type: 'NUMBER' },
+                  notes: { type: 'STRING' }
+                },
+                required: ['type', 'name', 'calories']
+              }
+            }
+          }
+        };
+
+        const model = state.settings.model || 'gemini-2.5-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+        try {
+          const response = await fetchWithRetry(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error?.message || 'Error al conectar con Gemini');
+          }
+
+          const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawJson) throw new Error('Respuesta vacía de Gemini');
+
+          const items = JSON.parse(rawJson);
+          if (!Array.isArray(items) || items.length === 0) {
+            throw new Error('No se detectaron alimentos ni ejercicios');
+          }
+
+          if (!state.entriesByDate[selectedDate]) {
+            state.entriesByDate[selectedDate] = [];
+          }
+
+          items.forEach(item => {
+            state.entriesByDate[selectedDate].push({
+              id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+              type: item.type === 'exercise' ? 'exercise' : 'food',
+              name: item.name || 'Registro',
+              calories: Math.round(Number(item.calories) || 0),
+              protein: Math.round(Number(item.protein) || 0),
+              carbs: Math.round(Number(item.carbs) || 0),
+              fat: Math.round(Number(item.fat) || 0),
+              notes: item.notes || ''
+            });
+          });
+
+          saveState();
+          promptInput.value = '';
+          autoResizeTextarea();
+          clearAttachedImage();
+          renderToday();
+          showToast(`${items.length} ${items.length === 1 ? 'registro añadido' : 'registros añadidos'}`, 'success');
+        } catch (err) {
+          showToast(err.message || 'No se pudo procesar la solicitud', 'error');
+        } finally {
+          setLoadingState(false);
+        }
+      }
+
+      async function fetchWithRetry(url, options, retries = 2) {
+        let delay = 1000;
+        for (let i = 0; i <= retries; i++) {
+          const res = await fetch(url, options);
+          if (res.status !== 429 && res.status < 500) return res;
+          if (i === retries) return res;
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+        }
+      }
+
+      function setLoadingState(loading) {
+        btnSendAi.disabled = loading;
+        iconSend.classList.toggle('hidden', loading);
+        iconSpinner.classList.toggle('hidden', !loading);
+      }
+
+      // --- 9. MODAL AÑADIR / EDITAR MANUAL ---
+      const modalEntry = document.getElementById('modal-entry');
+      const formManual = document.getElementById('form-manual-entry');
+      const typeToggles = document.querySelectorAll('.type-toggle');
+
+      document.getElementById('btn-open-manual').addEventListener('click', () => openEntryModal(null));
+      document.getElementById('btn-close-modal').addEventListener('click', () => modalEntry.classList.add('hidden'));
+
+      typeToggles.forEach(btn => {
+        btn.addEventListener('click', () => setManualType(btn.dataset.entryType));
+      });
+
+      function setManualType(type) {
+        document.getElementById('manual-type').value = type;
+        typeToggles.forEach(btn => {
+          const active = btn.dataset.entryType === type;
+          btn.classList.toggle('bg-olive-700', active);
+          btn.classList.toggle('text-white', active);
+          btn.classList.toggle('border-olive-700', active);
+          btn.classList.toggle('bg-olive-50', !active);
+          btn.classList.toggle('text-olive-700', !active);
+          btn.classList.toggle('border-olive-200', !active);
+        });
+        document.getElementById('manual-macros-row').classList.toggle('hidden', type === 'exercise');
+      }
+
+      function openEntryModal(entry) {
+        document.getElementById('modal-entry-title').textContent = entry ? 'Editar registro' : 'Añadir manualmente';
+        document.getElementById('edit-entry-id').value = entry ? entry.id : '';
+        setManualType(entry ? entry.type : 'food');
+        document.getElementById('manual-name').value = entry ? entry.name : '';
+        document.getElementById('manual-calories').value = entry ? entry.calories : '';
+        document.getElementById('manual-notes').value = entry ? (entry.notes || '') : '';
+        document.getElementById('manual-protein').value = entry ? (entry.protein || 0) : 0;
+        document.getElementById('manual-carbs').value = entry ? (entry.carbs || 0) : 0;
+        document.getElementById('manual-fat').value = entry ? (entry.fat || 0) : 0;
+        modalEntry.classList.remove('hidden');
+      }
+
+      formManual.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('edit-entry-id').value;
+        const type = document.getElementById('manual-type').value;
+        const record = {
+          id: editId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+          type,
+          name: document.getElementById('manual-name').value.trim(),
+          calories: Math.round(Number(document.getElementById('manual-calories').value) || 0),
+          notes: document.getElementById('manual-notes').value.trim(),
+          protein: type === 'food' ? Math.round(Number(document.getElementById('manual-protein').value) || 0) : 0,
+          carbs: type === 'food' ? Math.round(Number(document.getElementById('manual-carbs').value) || 0) : 0,
+          fat: type === 'food' ? Math.round(Number(document.getElementById('manual-fat').value) || 0) : 0
+        };
+
+        if (!state.entriesByDate[selectedDate]) state.entriesByDate[selectedDate] = [];
+
+        if (editId) {
+          const idx = state.entriesByDate[selectedDate].findIndex(item => item.id === editId);
+          if (idx !== -1) state.entriesByDate[selectedDate][idx] = record;
+        } else {
+          state.entriesByDate[selectedDate].push(record);
+        }
+
+        saveState();
+        modalEntry.classList.add('hidden');
+        renderToday();
+        showToast('Guardado correctamente', 'success');
+      });
+
+      // --- 10. PESTAÑA EVOLUCIÓN (PERFIL, PESO Y GRÁFICA SVG) ---
+      document.getElementById('input-weight-date').value = getTodayISO();
+
+      document.getElementById('form-weight').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const date = document.getElementById('input-weight-date').value;
+        const weight = parseFloat(document.getElementById('input-weight-val').value);
+        if (!date || isNaN(weight)) return;
+
+        // Reemplazar si ya hay pesaje ese día
+        state.weights = state.weights.filter(w => w.date !== date);
+        state.weights.push({ date, weight });
+        state.weights.sort((a, b) => a.date.localeCompare(b.date));
+
+        if (!state.profile.startWeight) {
+          state.profile.startWeight = weight;
+        }
+
+        saveState();
+        document.getElementById('input-weight-val').value = '';
+        renderEvolution();
+        showToast('Pesaje registrado', 'success');
+      });
+
+      document.getElementById('form-profile').addEventListener('submit', (e) => {
+        e.preventDefault();
+        state.profile.height = parseFloat(document.getElementById('prof-height').value) || 175;
+        state.profile.age = parseInt(document.getElementById('prof-age').value, 10) || 40;
+        state.profile.startWeight = parseFloat(document.getElementById('prof-start-weight').value) || null;
+        state.profile.goalWeight = parseFloat(document.getElementById('prof-goal-weight').value) || null;
+        state.profile.sex = document.getElementById('prof-sex').value;
+
+        saveState();
+        renderEvolution();
+        showToast('Perfil actualizado', 'success');
+      });
+
+      function renderEvolution() {
+        const p = state.profile;
+        document.getElementById('prof-height').value = p.height || '';
+        document.getElementById('prof-age').value = p.age || '';
+        document.getElementById('prof-start-weight').value = p.startWeight || '';
+        document.getElementById('prof-goal-weight').value = p.goalWeight || '';
+        document.getElementById('prof-sex').value = p.sex || 'male';
+
+        const sorted = [...state.weights].sort((a, b) => a.date.localeCompare(b.date));
+        const latestWeight = sorted.length > 0 ? sorted[sorted.length - 1].weight : p.startWeight;
+        const initialWeight = p.startWeight || (sorted.length > 0 ? sorted[0].weight : null);
+
+        document.getElementById('evo-current-weight').textContent = latestWeight ? `${latestWeight.toFixed(1)} kg` : '-- kg';
+        document.getElementById('evo-goal-label').textContent = p.goalWeight ? `Meta: ${p.goalWeight.toFixed(1)} kg` : 'Meta: -- kg';
+
+        const diffEl = document.getElementById('evo-weight-diff');
+        if (latestWeight && initialWeight) {
+          const diff = latestWeight - initialWeight;
+          const sign = diff > 0 ? '+' : '';
+          diffEl.textContent = `${sign}${diff.toFixed(1)} kg`;
+          diffEl.className = `text-lg font-bold mt-1 ${diff <= 0 ? 'text-emerald-700' : 'text-amber-700'}`;
+        } else {
+          diffEl.textContent = '0.0 kg';
+        }
+
+        // IMC y TMB (Mifflin-St Jeor)
+        if (latestWeight && p.height) {
+          const hMeters = p.height / 100;
+          const bmi = latestWeight / (hMeters * hMeters);
+          document.getElementById('evo-bmi').textContent = bmi.toFixed(1);
+
+          const s = p.sex === 'female' ? -161 : 5;
+          const tmb = Math.round((10 * latestWeight) + (6.25 * p.height) - (5 * (p.age || 35)) + s);
+          document.getElementById('evo-tmb-badge').textContent = `TMB: ${tmb} kcal`;
+        } else {
+          document.getElementById('evo-bmi').textContent = '--';
+          document.getElementById('evo-tmb-badge').textContent = 'TMB: -- kcal';
+        }
+
+        renderWeightChart(sorted, p.goalWeight);
+        renderWeightHistory(sorted);
+      }
+
+      function renderWeightChart(weights, goalWeight) {
+        const container = document.getElementById('weight-chart-container');
+        if (weights.length === 0) {
+          container.innerHTML = `<p class="text-xs text-olive-400 text-center">Registra tu primer peso arriba para ver la gráfica de evolución.</p>`;
+          return;
+        }
+
+        const w = 340;
+        const h = 170;
+        const padL = 36;
+        const padR = 16;
+        const padT = 18;
+        const padB = 26;
+
+        const allVals = weights.map(item => item.weight);
+        if (goalWeight) allVals.push(goalWeight);
+
+        let minVal = Math.min(...allVals) - 1;
+        let maxVal = Math.max(...allVals) + 1;
+        if (maxVal - minVal < 2) {
+          minVal -= 1;
+          maxVal += 1;
+        }
+
+        const plotW = w - padL - padR;
+        const plotH = h - padT - padB;
+
+        const getX = (idx) => weights.length === 1 ? padL + plotW / 2 : padL + (idx / (weights.length - 1)) * plotW;
+        const getY = (val) => padT + ((maxVal - val) / (maxVal - minVal)) * plotH;
+
+        const points = weights.map((item, i) => `${getX(i).toFixed(1)},${getY(item.weight).toFixed(1)}`).join(' ');
+        const areaPoints = `${getX(0).toFixed(1)},${(padT + plotH).toFixed(1)} ${points} ${getX(weights.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+
+        let goalLineSvg = '';
+        if (goalWeight) {
+          const gy = getY(goalWeight).toFixed(1);
+          goalLineSvg = `
+            <line x1="${padL}" y1="${gy}" x2="${w - padR}" y2="${gy}" stroke="#65755B" stroke-width="1.2" stroke-dasharray="4 4" />
+            <text x="${w - padR}" y="${gy - 4}" text-anchor="end" fill="#65755B" font-size="9" font-weight="600">Meta ${goalWeight}kg</text>
+          `;
+        }
+
+        const dotsSvg = weights.map((item, i) => {
+          const cx = getX(i).toFixed(1);
+          const cy = getY(item.weight).toFixed(1);
+          const shortDate = item.date.slice(5).replace('-', '/');
+          const showLabel = i === 0 || i === weights.length - 1 || weights.length <= 6;
+          return `
+            <circle cx="${cx}" cy="${cy}" r="3.8" fill="#3B4736" stroke="#FFFFFF" stroke-width="1.5" />
+            ${showLabel ? `<text x="${cx}" y="${h - 8}" text-anchor="middle" fill="#65755B" font-size="9">${shortDate}</text>` : ''}
+          `;
+        }).join('');
+
+        container.innerHTML = `
+          <svg viewBox="0 0 ${w} ${h}" class="w-full h-full overflow-visible">
+            <defs>
+              <linearGradient id="oliveGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3B4736" stop-opacity="0.22" />
+                <stop offset="100%" stop-color="#3B4736" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+            <!-- Guías horizontales -->
+            <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="#ECEEE9" stroke-width="1" />
+            <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" stroke="#ECEEE9" stroke-width="1" />
+            <text x="${padL - 6}" y="${padT + 3}" text-anchor="end" fill="#8F9E84" font-size="9">${maxVal.toFixed(0)}</text>
+            <text x="${padL - 6}" y="${padT + plotH}" text-anchor="end" fill="#8F9E84" font-size="9">${minVal.toFixed(0)}</text>
+
+            ${goalLineSvg}
+            ${weights.length > 1 ? `<polygon points="${areaPoints}" fill="url(#oliveGrad)" />` : ''}
+            ${weights.length > 1 ? `<polyline fill="none" stroke="#3B4736" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${points}" />` : ''}
+            ${dotsSvg}
+          </svg>
+        `;
+      }
+
+      function renderWeightHistory(sortedWeights) {
+        const list = document.getElementById('weight-history-list');
+        if (sortedWeights.length === 0) {
+          list.innerHTML = `<p class="text-xs text-olive-400 py-2">Sin historial de pesajes.</p>`;
+          return;
+        }
+        const reversed = [...sortedWeights].reverse();
+        list.innerHTML = reversed.map(item => {
+          const [y, m, d] = item.date.split('-');
+          return `
+            <div class="py-2 flex items-center justify-between">
+              <span class="text-xs text-olive-600 font-medium">${d}/${m}/${y}</span>
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-olive-900">${item.weight.toFixed(1)} kg</span>
+                <button type="button" data-del-weight="${item.date}" class="text-olive-400 hover:text-red-600 text-xs px-1">✕</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        list.querySelectorAll('[data-del-weight]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const d = btn.dataset.delWeight;
+            state.weights = state.weights.filter(w => w.date !== d);
+            saveState();
+            renderEvolution();
+            showToast('Pesaje eliminado');
+          });
+        });
+      }
+
+      // --- 11. PESTAÑA AJUSTES Y BACKUP JSON ---
+      function renderSettings() {
+        document.getElementById('set-api-key').value = state.settings.apiKey || '';
+        document.getElementById('set-model').value = state.settings.model || 'gemini-2.5-flash';
+        document.getElementById('set-calorie-goal').value = state.settings.calorieGoal || 1800;
+      }
+
+      document.getElementById('btn-toggle-key').addEventListener('click', () => {
+        const input = document.getElementById('set-api-key');
+        const isPass = input.type === 'password';
+        input.type = isPass ? 'text' : 'password';
+        document.getElementById('btn-toggle-key').textContent = isPass ? 'Ocultar' : 'Ver';
+      });
+
+      document.getElementById('btn-save-settings').addEventListener('click', () => {
+        state.settings.apiKey = document.getElementById('set-api-key').value.trim();
+        state.settings.model = document.getElementById('set-model').value;
+        state.settings.calorieGoal = Math.max(800, parseInt(document.getElementById('set-calorie-goal').value, 10) || 1800);
+        saveState();
+        showToast('Configuración guardada', 'success');
+      });
+
+      // Exportar JSON
+      document.getElementById('btn-export-json').addEventListener('click', () => {
+        const exportObj = { ...state, settings: { ...state.settings, apiKey: '' } }; // No exportar API Key por seguridad
+        const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rfit-backup-${getTodayISO()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Copia exportada (sin API Key)', 'success');
+      });
+
+      // Importar JSON
+      document.getElementById('input-import-json').addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const imported = JSON.parse(ev.target.result);
+            const currentKey = state.settings.apiKey;
+            state = {
+              settings: { ...defaultState.settings, ...(imported.settings || {}), apiKey: imported.settings?.apiKey || currentKey },
+              profile: { ...defaultState.profile, ...(imported.profile || {}) },
+              entriesByDate: imported.entriesByDate || {},
+              weights: Array.isArray(imported.weights) ? imported.weights : []
+            };
+            saveState();
+            renderSettings();
+            renderToday();
+            showToast('Datos restaurados correctamente', 'success');
+          } catch (err) {
+            showToast('Archivo JSON no válido', 'error');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      // Reiniciar datos
+      const modalReset = document.getElementById('modal-confirm-reset');
+      document.getElementById('btn-reset-all').addEventListener('click', () => modalReset.classList.remove('hidden'));
+      document.getElementById('btn-cancel-reset').addEventListener('click', () => modalReset.classList.add('hidden'));
+      document.getElementById('btn-confirm-reset-action').addEventListener('click', () => {
+        const keepKey = state.settings.apiKey;
+        state = structuredClone(defaultState);
+        state.settings.apiKey = keepKey;
+        saveState();
+        modalReset.classList.add('hidden');
+        renderSettings();
+        renderToday();
+        showToast('Datos borrados');
+      });
+
+      // --- INICIALIZACIÓN ---
+      renderToday();
+    })();
+  </script>
+</body>
+</html>
