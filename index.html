@@ -334,8 +334,9 @@
           <div>
             <label class="block text-[11px] font-medium text-olive-600 mb-1">Modelo de Gemini</label>
             <select id="set-model" class="w-full bg-olive-50 border border-olive-200 rounded-xl px-3 py-2.5 text-xs font-medium text-olive-900 focus:outline-none">
-              <option value="gemini-3.8-flash">gemini-3.8-flash (Recomendado - Rápido y Multimodal)</option>
-              <option value="gemini-3.8-flash-lite">gemini-3.8-flash-lite (Ligero - Sin saturación)</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash (Recomendado - Estable y Rápido)</option>
+              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Ultraligero - Sin saturación)</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (Última generación)</option>
             </select>
           </div>
         </div>
@@ -594,6 +595,7 @@
 
       // --- 2. ESTADO Y PERSISTENCIA EN LOCALSTORAGE ---
       const STORAGE_KEY = 'rfit_app_data_v1';
+      const VALID_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'];
 
       function getTodayISO() {
         const now = new Date();
@@ -604,7 +606,7 @@
       const defaultState = {
         settings: {
           apiKey: '',
-          model: 'gemini-3.8-flash',
+          model: 'gemini-2.5-flash',
           calorieGoal: 1800
         },
         profile: {
@@ -638,8 +640,8 @@
             entriesByDate: parsed.entriesByDate || {},
             weights: Array.isArray(parsed.weights) ? parsed.weights : []
           };
-          if (!loaded.settings.model || loaded.settings.model.includes('gemini-2.5')) {
-            loaded.settings.model = 'gemini-3.8-flash';
+          if (!VALID_MODELS.includes(loaded.settings.model)) {
+            loaded.settings.model = 'gemini-2.5-flash';
           }
           return loaded;
         } catch (err) {
@@ -659,24 +661,31 @@
       function showToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
         const el = document.createElement('div');
-        const bgClass = type === 'error'
-          ? 'bg-red-700 text-white'
+        const isError = type === 'error';
+        const bgClass = isError
+          ? 'bg-red-700 text-white pointer-events-auto cursor-pointer'
           : type === 'success'
             ? 'bg-olive-700 text-white'
             : 'bg-olive-900 text-white';
 
         el.className = `${bgClass} text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg text-center transition-all duration-300 opacity-0 translate-y-[-6px]`;
-        el.textContent = message;
+        el.textContent = isError ? `${message} (toca para cerrar)` : message;
         container.appendChild(el);
 
         requestAnimationFrame(() => {
           el.classList.remove('opacity-0', 'translate-y-[-6px]');
         });
 
-        setTimeout(() => {
+        const dismiss = () => {
           el.classList.add('opacity-0', 'translate-y-[-6px]');
           setTimeout(() => el.remove(), 300);
-        }, 3200);
+        };
+
+        if (isError) {
+          el.addEventListener('click', dismiss);
+        } else {
+          setTimeout(dismiss, 3200);
+        }
       }
 
       function formatDisplayDate(isoDate) {
@@ -1074,6 +1083,21 @@
         }
       });
 
+      async function discoverAvailableFlashModels(apiKey) {
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+          if (!res.ok) return [];
+          const json = await res.json();
+          const models = (json.models || [])
+            .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+            .map(m => m.name.replace(/^models\//, ''))
+            .filter(name => name.includes('flash') && !name.includes('audio') && !name.includes('image') && !name.includes('tts'));
+          return models;
+        } catch (e) {
+          return [];
+        }
+      }
+
       async function analyzeWithGemini(extraAudio = null) {
         const text = promptInput.value.trim();
         if (!text && !attachedImageBase64 && !extraAudio) {
@@ -1095,7 +1119,8 @@ Extrae TODOS los alimentos/bebidas consumidos y TODAS las actividades físicas r
 - Si es una captura de un reloj deportivo o app de actividad (Garmin, Apple Watch, Strava, Zepp, Samsung Health, etc.), lee exactamente las calorías activas/quemadas, tiempo y distancia si aparecen, y clasifícalo como "exercise".
 - Si es una foto de un plato o descripción de comida, estima las calorías y macronutrientes (proteína, carbohidratos, grasas en gramos) de forma realista para una ración estándar y clasifícalo como "food".
 - Si el usuario menciona varias cosas en una frase (ej. "3 cafés con leche de avena y una ensalada de pasta"), desglósalas en ítems separados para mayor claridad.
-Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
+Responde ÚNICAMENTE con un array JSON válido (sin markdown ni texto extra) con este formato exacto:
+[{"type":"food","name":"Nombre en español","calories":120,"protein":4,"carbs":14,"fat":5,"notes":"Detalle breve"}]`;
 
         const parts = [];
         if (text) {
@@ -1126,56 +1151,69 @@ Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
           systemInstruction: { parts: [{ text: systemInstruction }] },
           contents: [{ role: 'user', parts }],
           generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  type: { type: 'STRING', enum: ['food', 'exercise'] },
-                  name: { type: 'STRING' },
-                  calories: { type: 'NUMBER' },
-                  protein: { type: 'NUMBER' },
-                  carbs: { type: 'NUMBER' },
-                  fat: { type: 'NUMBER' },
-                  notes: { type: 'STRING' }
-                },
-                required: ['type', 'name', 'calories']
-              }
-            }
+            temperature: 0.2,
+            responseMimeType: 'application/json'
           }
         };
 
         try {
-          const primaryModel = state.settings.model || 'gemini-3.8-flash';
-          const modelsToTry = primaryModel === 'gemini-3.8-flash-lite'
-            ? ['gemini-3.8-flash-lite', 'gemini-3.8-flash']
-            : [primaryModel, 'gemini-3.8-flash-lite'];
+          const primaryModel = VALID_MODELS.includes(state.settings.model) ? state.settings.model : 'gemini-2.5-flash';
+          const fallbackDefaults = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'];
+          const candidates = [...new Set([primaryModel, ...fallbackDefaults])];
 
           let response = null;
           let data = null;
+          let succeededModel = null;
 
-          for (const currentModel of modelsToTry) {
+          for (const currentModel of candidates) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-            response = await fetchWithRetry(url, {
+            response = await fetch(url, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
-            }, 1);
+            });
 
             data = await response.json();
-            if (response.ok) break;
-            if (response.status !== 503 && response.status !== 429) break;
+            if (response.ok) {
+              succeededModel = currentModel;
+              break;
+            }
+            if (![404, 429, 503].includes(response.status)) break;
           }
 
-          if (!response.ok) {
-            throw new Error(data.error?.message || 'Error al conectar con Gemini');
+          // Autodescubrimiento si los nombres predefinidos fallaron por 404/503
+          if (!response || !response.ok) {
+            const discovered = await discoverAvailableFlashModels(apiKey);
+            for (const discModel of discovered) {
+              if (candidates.includes(discModel)) continue;
+              const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(discModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+              response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              data = await response.json();
+              if (response.ok) {
+                succeededModel = discModel;
+                break;
+              }
+            }
+          }
+
+          if (!response || !response.ok) {
+            throw new Error(data?.error?.message || 'Error al conectar con Gemini');
+          }
+
+          if (succeededModel && VALID_MODELS.includes(succeededModel) && state.settings.model !== succeededModel) {
+            state.settings.model = succeededModel;
           }
 
           const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!rawJson) throw new Error('Respuesta vacía de Gemini');
 
-          const items = JSON.parse(rawJson);
+          const cleanJson = rawJson.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(cleanJson);
+          const items = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.entries) ? parsed.entries : [parsed]);
           if (!Array.isArray(items) || items.length === 0) {
             throw new Error('No se detectaron alimentos ni ejercicios');
           }
@@ -1207,17 +1245,6 @@ Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
           showToast(err.message || 'No se pudo procesar la solicitud', 'error');
         } finally {
           setLoadingState(false);
-        }
-      }
-
-      async function fetchWithRetry(url, options, retries = 1) {
-        let delay = 1000;
-        for (let i = 0; i <= retries; i++) {
-          const res = await fetch(url, options);
-          if (res.status !== 429 && res.status < 500) return res;
-          if (i === retries) return res;
-          await new Promise(r => setTimeout(r, delay));
-          delay *= 2;
         }
       }
 
@@ -1485,7 +1512,7 @@ Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
       // --- 11. PESTAÑA AJUSTES Y BACKUP JSON ---
       function renderSettings() {
         document.getElementById('set-api-key').value = state.settings.apiKey || '';
-        document.getElementById('set-model').value = state.settings.model || 'gemini-3.8-flash';
+        document.getElementById('set-model').value = VALID_MODELS.includes(state.settings.model) ? state.settings.model : 'gemini-2.5-flash';
         document.getElementById('set-calorie-goal').value = state.settings.calorieGoal || 1800;
       }
 
@@ -1532,8 +1559,8 @@ Responde ÚNICAMENTE con un JSON válido siguiendo el esquema solicitado.`;
               entriesByDate: imported.entriesByDate || {},
               weights: Array.isArray(imported.weights) ? imported.weights : []
             };
-            if (!state.settings.model || state.settings.model.includes('gemini-2.5')) {
-              state.settings.model = 'gemini-3.8-flash';
+            if (!VALID_MODELS.includes(state.settings.model)) {
+              state.settings.model = 'gemini-2.5-flash';
             }
             saveState();
             renderSettings();
